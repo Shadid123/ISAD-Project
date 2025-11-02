@@ -17,45 +17,73 @@ root.config(bg="#202731")
 
 
 def getWeather():
-    city = textfield.get()
-    geolocator = Nominatim(user_agent="new")
-    location = geolocator.geocode(city)
+    try:
+        city = textfield.get()
+        geolocator = Nominatim(user_agent="new")
+        location = geolocator.geocode(city)
+        if location is None:
+            messagebox.showerror("Error", "City not found!")
+            return
 
-    obj = TimezoneFinder()
-    result = obj.timezone_at(lat=location.latitude, lng=location.longitude)
-    timezone.config(text=result)
+        # Timezone
+        obj = TimezoneFinder()
+        result = obj.timezone_at(lat=location.latitude, lng=location.longitude)
+        timezone.config(text=result)
 
-    long_lat.config(text=f"{round(location.latitude,4)}N {round(location.longitude,4)}E")
+        long_lat.config(text=f"{round(location.latitude,4)}N {round(location.longitude,4)}E")
 
-    home = pytz.timezone(result)
-    local_time = datetime.now(home)
-    current_time = local_time.strftime("%I:%M %p")
-    clock.config(text=current_time)
+        home = pytz.timezone(result)
+        local_time = datetime.now(home)
+        clock.config(text=local_time.strftime("%I:%M %p"))
 
-    api_key ="39dccad6a85a481b05be8af7445a60db"
-    api = f"https://api.openweathermap.org/data/2.5/forecast?q={city}&appid={api_key}&units=metric"
-    json_data=requests.get(api).json()
-    print(json_data)
+        # OpenWeatherMap API
+        api_key = "39dccad6a85a481b05be8af7445a60db"
+        api = f"https://api.openweathermap.org/data/2.5/forecast?q={city}&appid={api_key}&units=metric"
+        json_data = requests.get(api).json()
 
-  # Current weather from first forecast
-current = json_data['list'][0]
-temp = current['main']['temp']
-humidity = current['main']['humidity']
-pressure = current['main']['pressure']
-wind_speed = current['wind']['speed']
-description = current['weather'][0]['description']
+        current = json_data['list'][0]
+        t.config(text=f"{current['main']['temp']}°C")
+        h.config(text=f"{current['main']['humidity']}%")
+        p.config(text=f"{current['main']['pressure']} hPa")
+        w.config(text=f"{current['wind']['speed']} m/s")
+        d.config(text=current['weather'][0]['description'])
 
-t.config(text=f"{temp}°C")
-h.config(text=f"{humidity}%")
-p.config(text=f"{pressure} hPa")
-w.config(text=f"{wind_speed} m/s")
-d.config(text=f"{description}")
+        # Daily forecast (12:00 PM entries)
+        daily_data = [entry for entry in json_data['list'] if "12:00:00" in entry['dt_txt']]
 
-# Daily forecast — pick 12:00 PM entries
-daily_data = []
-for entry in json_data['list']:
-    if "12:00:00" in entry['dt_txt']:
-        daily_data.append(entry)
+        # Forecast frames & labels
+        forecast_widgets = [
+            (firstimage, day1, day1temp),
+            (secondimage, day2, day2temp),
+            (thirdimage, day3, day3temp),
+            (fourthimage, day4, day4temp),
+            (fifthimage, day5, day5temp)
+        ]
+
+        for i, (img_label, day_label, temp_label) in enumerate(forecast_widgets):
+            if i >= len(daily_data):
+                # Clear remaining frames if less than 5 days
+                img_label.config(image='')
+                temp_label.config(text='')
+                day_label.config(text='')
+                continue
+
+            entry = daily_data[i]
+            icon_code = entry['weather'][0]['icon']
+            img = Image.open(f"icon/{icon_code}@2x.png").resize((50, 50))
+            photo = ImageTk.PhotoImage(img)
+
+            img_label.config(image=photo)
+            img_label.image = photo
+
+            temp_label.config(text=f"Day: {entry['main']['temp_max']}° / Night: {entry['main']['feels_like']}°")
+
+            future_date = datetime.now() + timedelta(days=i+1)
+            day_label.config(text=future_date.strftime("%A"))
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Something went wrong:\n{e}")
+
 
 
 #icon 
@@ -95,11 +123,11 @@ weatherimage=Label(root,image=weat_image,bg="#333c4c")
 weatherimage.place(x=290,y=127)
 
 
-textfield=tk.Entry(root,justify="center",width=15,font=("poppins",25,"bold"),bg="#a33c4c",border=0,fg="White")
+textfield=tk.Entry(root,justify="center",width=15,font=("poppins",25,"bold"),bg="#333c4c",border=0,fg="White")
 textfield.place(x=370,y=130)
 
 Search_icon=PhotoImage(file="Images/Layer 6.png")
-myimage_icon=Button(root,image=Search_icon,borderwidth=0,cursor="hand2",bg="#333c4c",command=getweather)
+myimage_icon=Button(root,image=Search_icon,borderwidth=0,cursor="hand2",bg="#333c4c",command=getWeather)
 myimage_icon.place(x=640,y=135)
 
 
@@ -151,7 +179,7 @@ d.place(x=150,y=200)
 
 
 #first cell
-firstframe=Frame(root,width=230,height=132,bg="#323661")
+firstframe=Frame(root,width=230,height=132,bg="#red")
 firstframe.place(x=35,y=315)
 
 firstimage=Label(firstframe,bg="#323661")
@@ -180,7 +208,7 @@ day2temp.place(x=2,y=70)
 
 #third cell
 thirdframe=Frame(root,width=70,height=115,bg="#eeefea")
-thirdframe.place(x=305,y=325)
+thirdframe.place(x=405,y=325)
 
 thirdimage=Label(thirdframe,bg="#eeefea")
 thirdimage.place(x=7,y=20)
@@ -212,7 +240,7 @@ day4temp.place(x=2,y=70)
 #fifth cell
 
 fifthframe=Frame(root,width=70,height=115,bg="#eeefea")
-fifthframe.place(x=505,y=325)
+fifthframe.place(x=605,y=325)
 
 fifthimage=Label(fifthframe,bg="#eeefea")
 fifthimage.place(x=7,y=20)
